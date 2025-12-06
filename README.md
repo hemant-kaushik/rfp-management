@@ -17,7 +17,7 @@ A single-user web application that streamlines the Request for Proposal (RFP) wo
 - **Runtime**: Node.js with Express
 - **Language**: TypeScript
 - **Database**: PostgreSQL
-- **AI Provider**: OpenAI API
+- **AI Provider**: Perplexity AI
 - **Email**: Nodemailer (sending), IMAP/Mailgun (receiving)
 
 ### Frontend
@@ -54,7 +54,7 @@ RFP/
 
 - Node.js 18+ and npm
 - PostgreSQL 14+
-- OpenAI API key
+- Perplexity AI API key
 - Email account credentials (for sending/receiving)
 
 ### Backend Setup
@@ -122,13 +122,13 @@ Create `backend/.env` from `backend/.env.example`:
 
 ```
 DATABASE_URL=postgresql://user:password@localhost:5432/rfp_management
-OPENAI_API_KEY=your_openai_api_key
+PERPLEXITY_API_KEY=your_perplexity_api_key
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASS=your_app_password
 EMAIL_FROM=noreply@yourcompany.com
-PORT=5432
+PORT=5001
 NODE_ENV=development
 FRONTEND_URL=http://localhost:3000
 ```
@@ -196,7 +196,11 @@ createdb rfp_management
 3. **Configure Environment**:
 
    - Copy `backend/.env.example` to `backend/.env`
-   - Add your OpenAI API key, database URL, and email credentials
+   - Add your Perplexity AI API key, database URL, and email credentials
+   - Get your Perplexity API key from https://www.perplexity.ai/settings/api
+   - **Email Setup**: See `EMAIL_SETUP.md` for detailed email configuration instructions
+     - For Gmail: Enable 2FA and generate App Password
+     - Configure SMTP (for sending) and IMAP (for receiving) settings
 
 4. **Start Backend** (in one terminal):
 
@@ -205,7 +209,7 @@ cd backend
 npm run dev
 ```
 
-Backend runs on `http://localhost:5432`
+Backend runs on `http://localhost:5001` (or port specified in PORT env variable)
 
 5. **Start Frontend** (in another terminal):
 
@@ -228,7 +232,7 @@ Frontend runs on `http://localhost:3000`
 
 ### Key Components
 
-- **AI Service**: Uses OpenAI GPT-4o-mini for:
+- **AI Service**: Uses Perplexity AI (sonar) for:
 
   - Natural language to structured RFP conversion
   - Vendor proposal parsing
@@ -304,8 +308,12 @@ Frontend runs on `http://localhost:3000`
 
 ## Notes
 
-- The system uses OpenAI's GPT-4o-mini model for cost-effective AI processing
-- Email receiving is currently via a manual webhook endpoint (can be integrated with services like Mailgun, SendGrid webhooks)
+- The system uses Perplexity AI's sonar model for cost-effective AI processing with real-time information access
+- Get your Perplexity API key from https://www.perplexity.ai/settings/api
+- **Email Setup**: 
+  - Email sending: Configured via SMTP (supports Gmail, Outlook, SendGrid, etc.)
+  - Email receiving: Automatic via IMAP polling (checks every 60 seconds for vendor replies)
+  - Manual processing: Use `/api/email/receive` endpoint if IMAP is not configured
 - Database tables are auto-created on first run
 - All AI parsing uses structured JSON output for reliability
 

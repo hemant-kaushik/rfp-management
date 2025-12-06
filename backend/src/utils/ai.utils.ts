@@ -1,11 +1,20 @@
-import OpenAI from 'openai';
+import axios from 'axios';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
+const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY?.trim();
+
+if (!PERPLEXITY_API_KEY) {
+    console.warn('Warning: PERPLEXITY_API_KEY is not set. AI features will not work.');
+} else {
+    if (!PERPLEXITY_API_KEY.startsWith('pplx-')) {
+        console.warn('Warning: PERPLEXITY_API_KEY does not start with "pplx-". Please verify your API key is correct.');
+    } else {
+        console.log('Perplexity API Key loaded successfully');
+    }
+}
 
 export interface RFPStructure {
     title: string;
@@ -68,37 +77,57 @@ ${text}
 Return ONLY valid JSON, no markdown formatting or additional text.`;
 
     try {
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                { role: 'system', content: 'You are a helpful assistant that extracts structured data from text. Always return valid JSON.' },
-                { role: 'user', content: prompt }
-            ],
-            temperature: 0.3,
-            response_format: { type: 'json_object' }
-        });
-
-        const content = response.choices[0]?.message?.content;
-        if (!content) {
-            throw new Error('No response from OpenAI');
+        if (!PERPLEXITY_API_KEY) {
+            throw new Error('PERPLEXITY_API_KEY is not configured');
         }
 
-        return JSON.parse(content) as RFPStructure;
+        const response = await axios.post(
+            PERPLEXITY_API_URL,
+            {
+                model: 'sonar',
+                messages: [
+                    { role: 'system', content: 'You are a helpful assistant that extracts structured data from text. Always return valid JSON.' },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.3
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        const content = response.data.choices[0]?.message?.content;
+        if (!content) {
+            throw new Error('No response from Perplexity AI');
+        }
+
+        // Clean the response in case it has markdown code blocks
+        const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        return JSON.parse(cleanedContent) as RFPStructure;
     } catch (error: any) {
         console.error('Error parsing RFP:', error);
         
-        // Handle OpenAI API quota/rate limit errors
-        if (error?.status === 429 || error?.code === 'insufficient_quota' || error?.code === 'rate_limit_exceeded') {
-            const errorMessage = error?.error?.message || error?.message || 'Quota exceeded';
-            throw new Error(`OpenAI API Quota Error: ${errorMessage}. Please add a payment method at https://platform.openai.com/account/billing to increase your quota.`);
+        // Handle Perplexity API errors
+        if (error?.response?.status === 429) {
+            throw new Error('Perplexity API rate limit exceeded. Please try again later.');
         }
         
-        // Handle authentication errors
-        if (error?.status === 401) {
-            throw new Error('Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.');
+        if (error?.response?.status === 401) {
+            throw new Error(`Invalid Perplexity API key. Please check your PERPLEXITY_API_KEY environment variable. Make sure it starts with "pplx-" and is correct.`);
         }
         
-        // Re-throw with original message if available
+        if (error?.response?.status === 402 || error?.response?.status === 403) {
+            throw new Error('Perplexity API quota exceeded. Please check your account billing at https://www.perplexity.ai/settings/api.');
+        }
+
+        if (error?.response?.status === 400) {
+            const errorMessage = error?.response?.data?.error?.message || error?.response?.data?.message || 'Bad request';
+            throw new Error(`Perplexity API error: ${errorMessage}. Check if the model name is correct.`);
+        }
+
         if (error?.message) {
             throw error;
         }
@@ -144,24 +173,56 @@ Extract and return a JSON object with:
 Return ONLY valid JSON, no markdown formatting.`;
 
     try {
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                { role: 'system', content: 'You are a procurement assistant that extracts structured data from vendor proposals. Always return valid JSON.' },
-                { role: 'user', content: prompt }
-            ],
-            temperature: 0.3,
-            response_format: { type: 'json_object' }
-        });
-
-        const content = response.choices[0]?.message?.content;
-        if (!content) {
-            throw new Error('No response from OpenAI');
+        if (!PERPLEXITY_API_KEY) {
+            throw new Error('PERPLEXITY_API_KEY is not configured');
         }
 
-        return JSON.parse(content) as ParsedProposal;
-    } catch (error) {
+        const response = await axios.post(
+            PERPLEXITY_API_URL,
+            {
+                model: 'sonar',
+                messages: [
+                    { role: 'system', content: 'You are a procurement assistant that extracts structured data from vendor proposals. Always return valid JSON.' },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.3
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        const content = response.data.choices[0]?.message?.content;
+        if (!content) {
+            throw new Error('No response from Perplexity AI');
+        }
+
+        // Clean the response in case it has markdown code blocks
+        const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        return JSON.parse(cleanedContent) as ParsedProposal;
+    } catch (error: any) {
         console.error('Error parsing proposal:', error);
+
+        // Handle Perplexity API errors
+        if (error?.response?.status === 429) {
+            throw new Error('Perplexity API rate limit exceeded. Please try again later.');
+        }
+
+        if (error?.response?.status === 401) {
+            throw new Error(`Invalid Perplexity API key. Please check your PERPLEXITY_API_KEY environment variable. Make sure it starts with "pplx-" and is correct.`);
+        }
+
+        if (error?.response?.status === 402 || error?.response?.status === 403) {
+            throw new Error('Perplexity API quota exceeded. Please check your account billing at https://www.perplexity.ai/settings/api.');
+        }
+
+        if (error?.message) {
+            throw error;
+        }
+
         throw new Error('Failed to parse vendor proposal');
     }
 }
@@ -223,24 +284,61 @@ Consider: price competitiveness, delivery time, payment terms, warranty, complet
 Return ONLY valid JSON, no markdown formatting.`;
 
     try {
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                { role: 'system', content: 'You are a procurement expert providing vendor comparison analysis. Always return valid JSON.' },
-                { role: 'user', content: prompt }
-            ],
-            temperature: 0.5,
-            response_format: { type: 'json_object' }
-        });
-
-        const content = response.choices[0]?.message?.content;
-        if (!content) {
-            throw new Error('No response from OpenAI');
+        if (!PERPLEXITY_API_KEY) {
+            throw new Error('PERPLEXITY_API_KEY is not configured');
         }
 
-        return JSON.parse(content);
-    } catch (error) {
+        const response = await axios.post(
+            PERPLEXITY_API_URL,
+            {
+                model: 'sonar',
+                messages: [
+                    { role: 'system', content: 'You are a procurement expert providing vendor comparison analysis. Always return valid JSON.' },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.5
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        const content = response.data.choices[0]?.message?.content;
+        if (!content) {
+            throw new Error('No response from Perplexity AI');
+        }
+
+        // Clean the response in case it has markdown code blocks
+        const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        return JSON.parse(cleanedContent);
+    } catch (error: any) {
         console.error('Error comparing proposals:', error);
+
+        // Handle Perplexity API errors
+        if (error?.response?.status === 429) {
+            throw new Error('Perplexity API rate limit exceeded. Please try again later.');
+        }
+
+        if (error?.response?.status === 401) {
+            throw new Error(`Invalid Perplexity API key. Please check your PERPLEXITY_API_KEY environment variable. Make sure it starts with "pplx-" and is correct.`);
+        }
+
+        if (error?.response?.status === 402 || error?.response?.status === 403) {
+            throw new Error('Perplexity API quota exceeded. Please check your account billing at https://www.perplexity.ai/settings/api.');
+        }
+
+        if (error?.response?.status === 400) {
+            const errorMessage = error?.response?.data?.error?.message || error?.response?.data?.message || 'Bad request';
+            throw new Error(`Perplexity API error: ${errorMessage}. Check if the model name is correct.`);
+        }
+
+        if (error?.message) {
+            throw error;
+        }
+
         throw new Error('Failed to compare proposals');
     }
 }

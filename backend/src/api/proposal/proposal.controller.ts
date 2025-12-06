@@ -61,6 +61,61 @@ export const parseVendorProposalEmail = async (req: Request, res: Response) => {
     }
 }
 
+export const getProposalsByRFPController = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        // Get RFP
+        const rfp = await RFP.findByPk(id);
+        if (!rfp) {
+            return res.status(404).json({ error: 'RFP not found' });
+        }
+
+        // Get all proposals for this RFP
+        const proposals = await Proposal.findAll({
+            where: { rfp_id: id },
+            include: [
+                {
+                    model: Vendor,
+                    as: 'vendor',
+                    attributes: ['id', 'name', 'email'],
+                },
+            ],
+            order: [['created_at', 'DESC']],
+        });
+
+        res.json({
+            rfp: {
+                id: rfp.id,
+                title: rfp.title,
+            },
+            proposals: proposals.map((p: any) => ({
+                id: p.id,
+                vendor_id: p.vendor_id,
+                vendor_name: p.vendor?.name,
+                vendor_email: p.vendor?.email,
+                email_subject: p.email_subject,
+                email_body: p.email_body,
+                raw_response: p.raw_response,
+                total_price: p.total_price,
+                delivery_days: p.delivery_days,
+                payment_terms: p.payment_terms,
+                warranty_period: p.warranty_period,
+                completeness_score: p.completeness_score,
+                ai_summary: p.ai_summary,
+                ai_recommendation: p.ai_recommendation,
+                status: p.status,
+                created_at: p.created_at,
+                parsed_data: p.parsed_data,
+            })),
+            count: proposals.length,
+        });
+    } catch (error: any) {
+        console.error('Error fetching proposals:', error);
+        res.status(500).json({ error: error.message || 'Failed to fetch proposals' });
+    }
+};
+
 export const compareProposalsController = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;

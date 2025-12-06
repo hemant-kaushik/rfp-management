@@ -47,6 +47,7 @@ export const proposalApi = {
     email_subject: string;
     email_body: string;
   }) => api.post('/proposals/parse', data),
+  getByRFP: (rfpId: number) => api.get(`/proposals/rfp/${rfpId}`),
   compare: (rfpId: number) => api.get(`/proposals/rfp/${rfpId}/compare`),
 };
 

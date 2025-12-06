@@ -61,10 +61,20 @@ function formatRFPAsEmail(rfp: RFPStructure & { id: number }): string {
     }
 
     emailBody += `
-<p>Please reply to this email with your proposal including pricing, delivery timeline, and terms.</p>
+<p><strong>Instructions:</strong></p>
+<p>Please reply to this email with your proposal including:</p>
+<ul>
+    <li>Total price or itemized pricing</li>
+    <li>Delivery timeline</li>
+    <li>Payment terms</li>
+    <li>Warranty information</li>
+    <li>Any additional terms or conditions</li>
+</ul>
 
 <p>Thank you,<br>
 Procurement Team</p>
+
+<p><em>This is an automated email. Please reply directly to this message with your proposal.</em></p>
 `;
 
     return emailBody;
@@ -82,17 +92,23 @@ export async function sendRFPToVendor(
     const htmlBody = formatRFPAsEmail(rfp);
 
     try {
+        const replyToEmail = process.env.EMAIL_REPLY_TO || process.env.EMAIL_USER || process.env.EMAIL_FROM;
+
         await transporter.sendMail({
-            from: process.env.EMAIL_FROM,
+            from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
             to: vendorEmail,
+            replyTo: replyToEmail, // So vendors can reply to this email
             subject,
             html: htmlBody,
+            // Add text version for email clients that don't support HTML
+            text: `Request for Proposal: ${rfp.title}\n\n${rfp.description}\n\nPlease reply to this email with your proposal.`,
         });
 
-        console.log(`RFP sent to ${vendorName} (${vendorEmail})`);
-    } catch (error) {
+        console.log(`RFP sent successfully to ${vendorName} (${vendorEmail})`);
+    } catch (error: any) {
         console.error(`Failed to send RFP to ${vendorEmail}:`, error);
-        throw new Error(`Failed to send email to ${vendorEmail}`);
+        console.error('Error details:', error.message);
+        throw new Error(`Failed to send email to ${vendorEmail}: ${error.message}`);
     }
 }
 
@@ -102,18 +118,24 @@ export async function sendRFPToVendor(
 export async function sendRFPToVendors(
     vendors: Array<{ email: string; name: string }>,
     rfp: RFPStructure & { id: number }
-): Promise<{ success: number; failed: number }> {
+): Promise<{ success: number; failed: number; errors?: Array<{ vendor: string; error: string }> }> {
     let success = 0;
     let failed = 0;
+    const errors: Array<{ vendor: string; error: string }> = [];
 
     for (const vendor of vendors) {
         try {
             await sendRFPToVendor(vendor.email, vendor.name, rfp);
             success++;
-        } catch (error) {
+        } catch (error: any) {
             failed++;
+            errors.push({
+                vendor: vendor.name,
+                error: error.message || 'Unknown error'
+            });
+            console.error(`Failed to send to ${vendor.name}:`, error.message);
         }
     }
 
-    return { success, failed };
+    return { success, failed, errors: errors.length > 0 ? errors : undefined };
 }

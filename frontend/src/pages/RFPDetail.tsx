@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box,
@@ -21,17 +21,22 @@ import {
   Divider,
   Grid,
   Paper,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import EmailIcon from '@mui/icons-material/Email';
 import { rfpApi, vendorApi, proposalApi } from '../services/api';
 import { useState } from 'react';
 
 export default function RFPDetail() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [selectedVendors, setSelectedVendors] = useState<number[]>([]);
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
+  const [showProposals, setShowProposals] = useState(false);
 
   const { data: rfp, isLoading } = useQuery({
     queryKey: ['rfp', id],
@@ -47,6 +52,12 @@ export default function RFPDetail() {
     queryKey: ['comparison', id],
     queryFn: () => proposalApi.compare(Number(id)).then(res => res.data),
     enabled: compareDialogOpen && !!rfp,
+  });
+
+  const { data: proposalsData, isLoading: proposalsLoading, refetch: refetchProposals } = useQuery({
+    queryKey: ['proposals', id],
+    queryFn: () => proposalApi.getByRFP(Number(id)).then(res => res.data),
+    enabled: showProposals && !!id,
   });
 
   const sendMutation = useMutation({
@@ -81,9 +92,23 @@ export default function RFPDetail() {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">{rfp.title}</Typography>
         <Box display="flex" gap={2}>
-          <Button variant="outlined" onClick={() => setCompareDialogOpen(true)}>
-            Compare Proposals
+          <Button
+            variant="outlined"
+            onClick={() => {
+              setShowProposals(!showProposals);
+              if (!showProposals) {
+                refetchProposals();
+              }
+            }}
+            color={showProposals ? 'primary' : 'inherit'}
+          >
+            {showProposals ? 'Hide Proposals' : 'Show Proposals'}
           </Button>
+          {showProposals && proposalsData && proposalsData.proposals && proposalsData.proposals.length > 0 && (
+            <Button variant="outlined" onClick={() => setCompareDialogOpen(true)}>
+              Compare Proposals
+            </Button>
+          )}
           <Button variant="contained" onClick={() => setSendDialogOpen(true)}>
             Send to Vendors
           </Button>
@@ -172,59 +197,200 @@ export default function RFPDetail() {
             </CardContent>
           </Card>
 
-          {rfp.proposals && rfp.proposals.length > 0 && (
+          {/* Proposals Section */}
+          {showProposals && (
             <Box mt={3}>
-              <Typography variant="h5" gutterBottom>
-                Proposals ({rfp.proposals.length})
-              </Typography>
-              {rfp.proposals.map((proposal: any) => (
-                <Card key={proposal.id} sx={{ mb: 2 }}>
-                  <CardContent>
-                    <Box display="flex" justifyContent="space-between" alignItems="start" mb={2}>
-                      <Typography variant="h6">{proposal.vendor_name}</Typography>
-                      <Chip
-                        label={`${proposal.completeness_score || 0}% complete`}
-                        size="small"
-                        color={
-                          proposal.completeness_score >= 75
-                            ? 'success'
-                            : proposal.completeness_score >= 50
-                              ? 'warning'
-                              : 'error'
-                        }
-                      />
-                    </Box>
-                    {proposal.total_price && (
-                      <Typography variant="h6" color="primary" gutterBottom>
-                        ${parseFloat(proposal.total_price).toLocaleString()}
-                      </Typography>
-                    )}
-                    <Grid container spacing={2} mt={1}>
-                      {proposal.delivery_days && (
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">
-                            Delivery: {proposal.delivery_days} days
-                          </Typography>
-                        </Grid>
-                      )}
-                      {proposal.payment_terms && (
-                        <Grid item xs={6}>
-                          <Typography variant="body2" color="text.secondary">
-                            Payment: {proposal.payment_terms}
-                          </Typography>
-                        </Grid>
-                      )}
-                    </Grid>
-                    {proposal.ai_summary && (
-                      <Box mt={2}>
-                        <Typography variant="body2" color="text.secondary">
-                          {proposal.ai_summary}
-                        </Typography>
-                      </Box>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h5">
+                  Proposals
+                  {proposalsData && proposalsData.count > 0 && (
+                    <Chip
+                      label={`${proposalsData.count} received`}
+                      size="small"
+                      color="primary"
+                      sx={{ ml: 2 }}
+                    />
+                  )}
+                </Typography>
+                <Button
+                  size="small"
+                  onClick={() => refetchProposals()}
+                  disabled={proposalsLoading}
+                  startIcon={proposalsLoading ? <CircularProgress size={16} /> : <EmailIcon />}
+                >
+                  Refresh
+                </Button>
+              </Box>
+
+              {proposalsLoading ? (
+                <Box display="flex" justifyContent="center" p={3}>
+                  <CircularProgress />
+                </Box>
+              ) : proposalsData && proposalsData.proposals && proposalsData.proposals.length > 0 ? (
+                <Box>
+                  {proposalsData.proposals.map((proposal: any) => (
+                    <Card
+                      key={proposal.id}
+                      sx={{
+                        mb: 2,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        '&:hover': {
+                          boxShadow: 4,
+                          borderColor: 'primary.main',
+                        },
+                        transition: 'all 0.3s ease',
+                      }}
+                    >
+                      <CardContent>
+                        <Accordion defaultExpanded={false} sx={{ boxShadow: 'none', '&:before': { display: 'none' } }}>
+                          <AccordionSummary
+                            expandIcon={<ExpandMoreIcon />}
+                            sx={{
+                              px: 0,
+                              '&:hover': { bgcolor: 'action.hover' },
+                            }}
+                          >
+                            <Box display="flex" justifyContent="space-between" alignItems="center" width="100%" pr={2}>
+                              <Box>
+                                <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                  <EmailIcon color="primary" fontSize="small" />
+                                  <Typography variant="h6" fontWeight="bold">
+                                    {proposal.vendor_name}
+                                  </Typography>
+                                </Box>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                  {proposal.vendor_email}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                  {proposal.email_subject}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                  {new Date(proposal.created_at).toLocaleString()}
+                                </Typography>
+                              </Box>
+                              <Box display="flex" flexDirection="column" alignItems="flex-end" gap={1}>
+                                {proposal.total_price && (
+                                  <Typography variant="h5" color="primary.main" fontWeight="bold">
+                                    ${parseFloat(proposal.total_price).toLocaleString()}
+                                  </Typography>
+                                )}
+                                <Chip
+                                  label={`${proposal.completeness_score || 0}% complete`}
+                                  size="small"
+                                  color={
+                                    proposal.completeness_score >= 75
+                                      ? 'success'
+                                      : proposal.completeness_score >= 50
+                                        ? 'warning'
+                                        : 'error'
+                                  }
+                                />
+                                <Chip
+                                  label={proposal.status || 'received'}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                              </Box>
+                            </Box>
+                          </AccordionSummary>
+                          <AccordionDetails sx={{ pt: 2 }}>
+                            <Grid container spacing={2} mb={2}>
+                              {proposal.delivery_days && (
+                                <Grid item xs={6} sm={3}>
+                                  <Paper sx={{ p: 1.5, bgcolor: 'primary.50', textAlign: 'center' }}>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                      Delivery
+                                    </Typography>
+                                    <Typography variant="h6" color="primary.main">
+                                      {proposal.delivery_days} days
+                                    </Typography>
+                                  </Paper>
+                                </Grid>
+                              )}
+                              {proposal.payment_terms && (
+                                <Grid item xs={6} sm={3}>
+                                  <Paper sx={{ p: 1.5, bgcolor: 'success.50', textAlign: 'center' }}>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                      Payment Terms
+                                    </Typography>
+                                    <Typography variant="body1" fontWeight="bold" color="success.main">
+                                      {proposal.payment_terms}
+                                    </Typography>
+                                  </Paper>
+                                </Grid>
+                              )}
+                              {proposal.warranty_period && (
+                                <Grid item xs={6} sm={3}>
+                                  <Paper sx={{ p: 1.5, bgcolor: 'info.50', textAlign: 'center' }}>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                      Warranty
+                                    </Typography>
+                                    <Typography variant="body1" fontWeight="bold" color="info.main">
+                                      {proposal.warranty_period}
+                                    </Typography>
+                                  </Paper>
+                                </Grid>
+                              )}
+                            </Grid>
+
+                            {proposal.ai_summary && (
+                              <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+                                  AI Summary
+                                </Typography>
+                                <Typography variant="body2">{proposal.ai_summary}</Typography>
+                              </Alert>
+                            )}
+
+                            {proposal.ai_recommendation && (
+                              <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+                                  AI Recommendation
+                                </Typography>
+                                <Typography variant="body2">{proposal.ai_recommendation}</Typography>
+                              </Alert>
+                            )}
+
+                            <Divider sx={{ my: 2 }} />
+
+                            <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+                              Email Content
+                            </Typography>
+                            <Paper
+                              sx={{
+                                p: 2,
+                                bgcolor: 'grey.50',
+                                maxHeight: 300,
+                                overflow: 'auto',
+                                borderRadius: 2,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                              }}
+                            >
+                              <Typography
+                                variant="body2"
+                                component="pre"
+                                sx={{
+                                  whiteSpace: 'pre-wrap',
+                                  fontFamily: 'inherit',
+                                  margin: 0,
+                                }}
+                              >
+                                {proposal.email_body || proposal.raw_response || 'No email content available'}
+                              </Typography>
+                            </Paper>
+                          </AccordionDetails>
+                        </Accordion>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+              ) : (
+                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                  No proposals received yet for this RFP. Proposals will appear here once vendors reply to the RFP.
+                </Alert>
+              )}
             </Box>
           )}
         </Grid>
