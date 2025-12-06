@@ -62,6 +62,8 @@ export const getRFPById = async (req: Request, res: Response) => {
                         },
                     ],
                     required: false,
+                    separate: true,
+                    order: [['created_at', 'DESC']],
                 },
             ],
         });
@@ -77,12 +79,15 @@ export const getRFPById = async (req: Request, res: Response) => {
             sent_at: vendor.RFPVendor?.sent_at,
         })) || [];
 
-        // Format proposals
-        const proposals = (rfp as any).proposals?.map((proposal: any) => ({
+        const proposals = ((rfp as any).proposals?.map((proposal: any) => ({
             ...proposal.toJSON(),
             vendor_name: proposal.vendor?.name,
             vendor_email: proposal.vendor?.email,
-        })) || [];
+        })) || []).sort((a: any, b: any) => {
+            const dateA = new Date(a.created_at).getTime();
+            const dateB = new Date(b.created_at).getTime();
+            return dateB - dateA; // Descending order (newest first)
+        });
 
         res.json({
             ...rfp.toJSON(),

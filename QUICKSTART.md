@@ -53,11 +53,27 @@ createdb rfp_management
 
 Edit `backend/.env`:
 
-1. **Database**: Update `DATABASE_URL` with your PostgreSQL credentials
-2. **OpenAI**: Add your `OPENAI_API_KEY` (get from https://platform.openai.com/)
-3. **Email**: Configure SMTP settings for sending emails
-   - For Gmail: Use App Password (not regular password)
-   - Enable "Less secure app access" or use App Passwords
+1. **Database**: Configure PostgreSQL connection:
+   ```
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=rfp_management
+   DB_USER=your_postgres_user
+   DB_PASSWORD=your_postgres_password
+   ```
+
+2. **Perplexity AI**: Add your `PERPLEXITY_API_KEY` (get from https://www.perplexity.ai/settings/api)
+   - API key starts with `pplx-`
+
+3. **Email**: Configure SMTP settings for sending emails:
+   ```
+   EMAIL_HOST=smtp.gmail.com
+   EMAIL_PORT=587
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASS=your_app_password
+   EMAIL_FROM=noreply@yourcompany.com
+   ```
+   - For Gmail: Enable 2FA and generate an App Password (not regular password)
 
 ## Running the Application
 
@@ -68,7 +84,9 @@ cd backend
 npm run dev
 ```
 
-✅ Backend running on http://localhost:5001
+✅ Backend running on http://localhost:5001 (or port specified in PORT env variable)
+
+**Note**: Database tables are automatically created on first server start.
 
 **Terminal 2 - Frontend:**
 
@@ -109,6 +127,7 @@ npm run dev
 5. **Simulate Vendor Response**:
 
    - Use Postman or curl to POST to `/api/email/receive`:
+   - **Important**: The vendor email must match a vendor in your database
 
    ```bash
    curl -X POST http://localhost:5001/api/email/receive \
@@ -120,6 +139,13 @@ npm run dev
        "rfp_id": 1
      }'
    ```
+
+   The system will:
+   - Find the vendor by email address
+   - Parse the proposal using AI
+   - Extract pricing, delivery terms, etc.
+   - Calculate a completeness score
+   - Save the proposal to the database
 
 6. **Compare Proposals**:
    - Open RFP details
@@ -134,11 +160,12 @@ npm run dev
 - Verify DATABASE_URL in `.env`
 - Ensure database exists: `psql -l | grep rfp_management`
 
-### OpenAI API Error
+### Perplexity AI API Error
 
 - Verify API key is correct
 - Check API key has credits/quota
-- Ensure key starts with `sk-`
+- Ensure key starts with `pplx-`
+- Get your API key from https://www.perplexity.ai/settings/api
 
 ### Email Sending Fails
 
@@ -148,9 +175,9 @@ npm run dev
 
 ### Frontend Can't Connect to Backend
 
-- Ensure backend is running on port 5432
-- Check CORS settings in backend
-- Verify proxy in `vite.config.ts` points to `http://localhost:5432`
+- Ensure backend is running on port 5001 (or your configured PORT)
+- Check CORS settings in backend (FRONTEND_URL env variable)
+- Verify proxy in `vite.config.ts` points to `http://localhost:5001`
 
 ## Testing the AI Features
 
@@ -184,5 +211,5 @@ Create multiple proposals with:
 
 - Review `ARCHITECTURE.md` for system design details
 - Check `README.md` for full documentation
-- Customize email templates in `backend/src/services/email.service.ts`
-- Adjust AI prompts in `backend/src/services/ai.service.ts`
+- Customize email templates in `backend/src/utils/email.utils.ts`
+- Adjust AI prompts in `backend/src/utils/ai.utils.ts`

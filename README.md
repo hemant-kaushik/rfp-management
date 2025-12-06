@@ -16,9 +16,9 @@ A single-user web application that streamlines the Request for Proposal (RFP) wo
 
 - **Runtime**: Node.js with Express
 - **Language**: TypeScript
-- **Database**: PostgreSQL
-- **AI Provider**: Perplexity AI
-- **Email**: Nodemailer (sending), IMAP/Mailgun (receiving)
+- **Database**: PostgreSQL with Sequelize ORM
+- **AI Provider**: Perplexity AI (sonar model)
+- **Email**: Nodemailer (SMTP sending)
 
 ### Frontend
 
@@ -33,18 +33,20 @@ A single-user web application that streamlines the Request for Proposal (RFP) wo
 RFP/
 ├── backend/          # Express API server
 │   ├── src/
-│   │   ├── routes/   # API routes
-│   │   ├── models/   # Database models
-│   │   ├── services/ # Business logic (AI, email)
-│   │   ├── utils/    # Helper functions
-│   │   └── config/   # Configuration
-│   └── migrations/   # Database migrations
+│   │   ├── api/      # Controllers (rfp, vendors, proposal, email)
+│   │   ├── routes/   # Express route definitions
+│   │   ├── models/   # Sequelize database models
+│   │   ├── utils/    # Helper functions (AI, email)
+│   │   ├── db/       # Database configuration
+│   │   ├── app.ts    # Express app setup
+│   │   └── index.ts  # Server entry point
 ├── frontend/         # React application
 │   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── services/ # API clients
-│   │   └── hooks/
+│   │   ├── components/  # Reusable UI components
+│   │   ├── pages/      # Page components
+│   │   ├── services/   # API client functions
+│   │   ├── App.tsx     # Route configuration
+│   │   └── main.tsx    # Application entry
 └── README.md
 ```
 
@@ -83,10 +85,9 @@ cp .env.example .env
 ```bash
 # Create PostgreSQL database
 createdb rfp_management
-
-# Run migrations
-npm run migrate
 ```
+
+**Note**: Database tables are automatically created on first server start using Sequelize's `sync()` method. No manual migrations needed.
 
 5. Start development server:
 
@@ -121,17 +122,34 @@ npm run dev
 Create `backend/.env` from `backend/.env.example`:
 
 ```
-DATABASE_URL=postgresql://user:password@localhost:5432/rfp_management
-PERPLEXITY_API_KEY=your_perplexity_api_key
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=rfp_management
+DB_USER=your_postgres_user
+DB_PASSWORD=your_postgres_password
+
+# Perplexity AI Configuration
+PERPLEXITY_API_KEY=pplx-your_perplexity_api_key
+
+# Email Configuration (SMTP)
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASS=your_app_password
 EMAIL_FROM=noreply@yourcompany.com
+EMAIL_REPLY_TO=your_email@gmail.com  # Optional: for vendor replies
+
+# Server Configuration
 PORT=5001
 NODE_ENV=development
 FRONTEND_URL=http://localhost:3000
 ```
+
+**Note**: 
+- Get your Perplexity API key from https://www.perplexity.ai/settings/api (starts with `pplx-`)
+- For Gmail, use an App Password (not your regular password)
+- Database tables are auto-created on first run
 
 ### Frontend (.env)
 
@@ -147,14 +165,26 @@ VITE_API_URL=/api
 
 ## API Endpoints
 
-- `POST /api/rfps` - Create RFP from natural language
-- `GET /api/rfps` - List all RFPs
-- `GET /api/rfps/:id` - Get RFP details
-- `POST /api/vendors` - Create vendor
-- `GET /api/vendors` - List vendors
-- `POST /api/rfps/:id/send` - Send RFP to vendors
-- `POST /api/proposals/parse` - Parse vendor response email
-- `GET /api/rfps/:id/compare` - Compare proposals for an RFP
+### RFP Endpoints
+- `GET /api/rfps` - List all RFPs with vendor and proposal counts
+- `POST /api/rfps` - Create RFP from natural language description
+- `GET /api/rfps/:id` - Get RFP details with vendors and proposals
+- `POST /api/rfps/:id/send` - Send RFP to selected vendors (requires `vendor_ids` array in body)
+
+### Vendor Endpoints
+- `GET /api/vendors` - List all vendors
+- `POST /api/vendors` - Create new vendor
+- `GET /api/vendors/:id` - Get vendor details
+- `PUT /api/vendors/:id` - Update vendor
+- `DELETE /api/vendors/:id` - Delete vendor
+
+### Proposal Endpoints
+- `POST /api/proposals/parse` - Parse vendor proposal email manually (requires `rfp_id`, `vendor_id`, `email_subject`, `email_body`)
+- `GET /api/proposals/rfp/:id` - Get all proposals for an RFP
+- `GET /api/proposals/rfp/:id/compare` - Compare proposals for an RFP with AI recommendations
+
+### Email Endpoints
+- `POST /api/email/receive` - Receive and process vendor proposal email (requires `from`, `subject`, `body`, optional `rfp_id`)
 
 ## Quick Start
 
@@ -209,7 +239,7 @@ cd backend
 npm run dev
 ```
 
-Backend runs on `http://localhost:5001` (or port specified in PORT env variable)
+Backend runs on `http://localhost:5001` (default port is 5001, or as specified in PORT env variable)
 
 5. **Start Frontend** (in another terminal):
 
@@ -232,22 +262,22 @@ Frontend runs on `http://localhost:3000`
 
 ### Key Components
 
-- **AI Service**: Uses Perplexity AI (sonar) for:
+- **AI Service**: Uses Perplexity AI (sonar model) for:
 
-  - Natural language to structured RFP conversion
-  - Vendor proposal parsing
-  - Proposal comparison and recommendations
+  - Natural language to structured RFP conversion (`parseRFPFromText`)
+  - Vendor proposal parsing (`parseProposalEmail`)
+  - Proposal comparison and recommendations (`compareProposals`)
 
 - **Email Service**: Handles:
 
-  - Sending RFPs to vendors (Nodemailer)
-  - Receiving vendor responses (webhook endpoint)
+  - Sending RFPs to vendors via SMTP (Nodemailer)
+  - Receiving vendor responses via webhook endpoint (`/api/email/receive`)
 
-- **Database Schema**:
-  - `vendors`: Vendor master data
-  - `rfps`: RFP definitions with requirements
-  - `rfp_vendors`: Many-to-many relationship tracking sent RFPs
-  - `proposals`: Parsed vendor responses with AI-extracted data
+- **Database Schema** (PostgreSQL with Sequelize):
+  - `vendors`: Vendor master data (id, name, email, contact_person, phone, address)
+  - `rfps`: RFP definitions (id, title, description, budget, delivery_days, payment_terms, warranty_period, requirements JSONB, status)
+  - `rfp_vendors`: Many-to-many relationship tracking sent RFPs (id, rfp_id, vendor_id, sent_at, status)
+  - `proposals`: Parsed vendor responses (id, rfp_id, vendor_id, email_subject, email_body, parsed_data JSONB, total_price, delivery_days, payment_terms, warranty_period, completeness_score, ai_summary, ai_recommendation, status)
 
 ## Testing the System
 
@@ -282,40 +312,19 @@ Frontend runs on `http://localhost:3000`
 
 ## API Documentation
 
-### RFP Endpoints
-
-- `POST /api/rfps` - Create RFP from natural language description
-- `GET /api/rfps` - List all RFPs
-- `GET /api/rfps/:id` - Get RFP with vendors and proposals
-- `POST /api/rfps/:id/send` - Send RFP to selected vendors
-
-### Vendor Endpoints
-
-- `POST /api/vendors` - Create vendor
-- `GET /api/vendors` - List all vendors
-- `GET /api/vendors/:id` - Get vendor details
-- `PUT /api/vendors/:id` - Update vendor
-- `DELETE /api/vendors/:id` - Delete vendor
-
-### Proposal Endpoints
-
-- `POST /api/proposals/parse` - Parse vendor response email
-- `GET /api/proposals/rfp/:id/compare` - Compare proposals for an RFP
-
-### Email Endpoints
-
-- `POST /api/email/receive` - Receive and process vendor response email
+See the "API Endpoints" section above for complete endpoint documentation.
 
 ## Notes
 
-- The system uses Perplexity AI's sonar model for cost-effective AI processing with real-time information access
-- Get your Perplexity API key from https://www.perplexity.ai/settings/api
+- **AI Provider**: The system uses Perplexity AI's sonar model for cost-effective AI processing with real-time information access
+- **API Key**: Get your Perplexity API key from https://www.perplexity.ai/settings/api (key starts with `pplx-`)
 - **Email Setup**: 
   - Email sending: Configured via SMTP (supports Gmail, Outlook, SendGrid, etc.)
-  - Email receiving: Automatic via IMAP polling (checks every 60 seconds for vendor replies)
-  - Manual processing: Use `/api/email/receive` endpoint if IMAP is not configured
-- Database tables are auto-created on first run
-- All AI parsing uses structured JSON output for reliability
+  - Email receiving: Use the `/api/email/receive` webhook endpoint to process vendor responses
+  - For Gmail: Enable 2FA and generate an App Password (not your regular password)
+- **Database**: Tables are auto-created on first server start using Sequelize's `sync()` method
+- **AI Parsing**: All AI parsing uses structured JSON output for reliability
+- **Default Port**: Backend port is configurable via PORT env variable (defaults to 5432 in code, but should be set to 5001 in .env to avoid conflict with PostgreSQL)
 
 ## License
 
