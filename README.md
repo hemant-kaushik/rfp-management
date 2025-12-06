@@ -1,215 +1,112 @@
 # AI-Powered RFP Management System
 
-A single-user web application that streamlines the Request for Proposal (RFP) workflow from creation to vendor comparison using AI.
+A single-user web application that streamlines the Request for Proposal (RFP) workflow from creation to vendor comparison using AI. The system converts natural language RFP descriptions into structured formats, sends RFPs to vendors via email, and automatically parses and compares vendor proposals using AI.
 
-## Features
+## 1. Project Setup
 
-- **Natural Language RFP Creation**: Describe requirements in plain English, system converts to structured RFP
-- **Vendor Management**: Maintain vendor database with contact information
-- **Email Integration**: Send RFPs to vendors and receive responses automatically
-- **AI-Powered Parsing**: Automatically extract key details from vendor responses (prices, terms, conditions)
-- **Proposal Comparison**: Compare vendor proposals with AI-assisted recommendations
+### a. Prerequisites
 
-## Tech Stack
+- **Node.js**: Version 18 or higher
+- **npm**: Comes with Node.js
+- **PostgreSQL**: Version 14 or higher
+- **Perplexity AI API Key**: Get from [https://www.perplexity.ai/settings/api](https://www.perplexity.ai/settings/api) (key starts with `pplx-`)
+- **Email Account**: For sending RFPs (Gmail, Outlook, SendGrid, etc.)
 
-### Backend
+### b. Install Steps
 
-- **Runtime**: Node.js with Express
-- **Language**: TypeScript
-- **Database**: PostgreSQL with Sequelize ORM
-- **AI Provider**: Perplexity AI (sonar model)
-- **Email**: Nodemailer (SMTP sending)
-
-### Frontend
-
-- **Framework**: React with TypeScript
-- **UI Library**: Material-UI (MUI) for modern components
-- **State Management**: React Query for server state
-- **HTTP Client**: Axios
-
-## Project Structure
-
-```
-RFP/
-├── backend/          # Express API server
-│   ├── src/
-│   │   ├── api/      # Controllers (rfp, vendors, proposal, email)
-│   │   ├── routes/   # Express route definitions
-│   │   ├── models/   # Sequelize database models
-│   │   ├── utils/    # Helper functions (AI, email)
-│   │   ├── db/       # Database configuration
-│   │   ├── app.ts    # Express app setup
-│   │   └── index.ts  # Server entry point
-├── frontend/         # React application
-│   ├── src/
-│   │   ├── components/  # Reusable UI components
-│   │   ├── pages/      # Page components
-│   │   ├── services/   # API client functions
-│   │   ├── App.tsx     # Route configuration
-│   │   └── main.tsx    # Application entry
-└── README.md
-```
-
-## Setup Instructions
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- PostgreSQL 14+
-- Perplexity AI API key
-- Email account credentials (for sending/receiving)
-
-### Backend Setup
+#### Backend Setup
 
 1. Navigate to backend directory:
-
 ```bash
 cd backend
 ```
 
 2. Install dependencies:
-
 ```bash
 npm install
 ```
 
-3. Set up environment variables:
-
+3. Create environment file:
 ```bash
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your configuration (see section c)
 ```
 
-4. Set up database:
-
+4. Create PostgreSQL database:
 ```bash
-# Create PostgreSQL database
 createdb rfp_management
 ```
 
 **Note**: Database tables are automatically created on first server start using Sequelize's `sync()` method. No manual migrations needed.
 
-5. Start development server:
-
-```bash
-npm run dev
-```
-
-### Frontend Setup
+#### Frontend Setup
 
 1. Navigate to frontend directory:
-
 ```bash
 cd frontend
 ```
 
 2. Install dependencies:
-
 ```bash
 npm install
 ```
 
-3. Start development server:
-
+3. (Optional) Create environment file:
 ```bash
-npm run dev
+cp .env.example .env
+# Only needed if you want to override the default API URL
 ```
 
-## Environment Variables
+**Note**: Frontend `.env` is optional since Vite's proxy configuration handles API routing by default.
 
-### Backend (.env)
+#### Quick Setup Script
 
-Create `backend/.env` from `backend/.env.example`:
-
+Alternatively, use the provided setup script:
+```bash
+./setup.sh
 ```
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=rfp_management
-DB_USER=your_postgres_user
-DB_PASSWORD=your_postgres_password
 
-# Perplexity AI Configuration
-PERPLEXITY_API_KEY=pplx-your_perplexity_api_key
+This will install dependencies for both frontend and backend, and create `.env` files if they don't exist.
 
-# Email Configuration (SMTP)
+### c. How to Configure Email Sending/Receiving
+
+#### Email Sending (SMTP Configuration)
+
+Edit `backend/.env` with your SMTP settings:
+
+```env
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASS=your_app_password
 EMAIL_FROM=noreply@yourcompany.com
 EMAIL_REPLY_TO=your_email@gmail.com  # Optional: for vendor replies
-
-# Server Configuration
-PORT=5001
-NODE_ENV=development
-FRONTEND_URL=http://localhost:3000
 ```
 
-**Note**: 
-- Get your Perplexity API key from https://www.perplexity.ai/settings/api (starts with `pplx-`)
-- For Gmail, use an App Password (not your regular password)
-- Database tables are auto-created on first run
+**Gmail Setup**:
+1. Enable 2-Factor Authentication on your Google account
+2. Go to [Google App Passwords](https://myaccount.google.com/apppasswords)
+3. Generate an App Password (not your regular password)
+4. Use this App Password as `EMAIL_PASS`
 
-### Frontend (.env)
+**Other Email Providers**:
+- **Outlook**: `smtp-mail.outlook.com`, port `587`
+- **SendGrid**: Use your SendGrid SMTP credentials
+- **Custom SMTP**: Configure according to your provider's documentation
 
-Create `frontend/.env` from `frontend/.env.example` (optional):
+#### Email Receiving
 
-```
-# Backend API URL (optional - defaults to /api proxy)
-# If not set, vite.config.ts proxy handles API requests
-VITE_API_URL=/api
-```
+The system uses a webhook endpoint to receive vendor responses:
 
-**Note**: The frontend `.env` is optional since Vite's proxy configuration handles API routing by default. Only create it if you need to point to a different backend URL.
+- **Endpoint**: `POST /api/email/receive`
+- **Manual Processing**: Send vendor emails to this endpoint (useful for testing)
+- **Future**: Can be integrated with email services (Mailgun, SendGrid webhooks) or IMAP polling
 
-## API Endpoints
+**Note**: The system identifies vendors by email address, so ensure vendor emails in the database match the sender's email address.
 
-### RFP Endpoints
-- `GET /api/rfps` - List all RFPs with vendor and proposal counts
-- `POST /api/rfps` - Create RFP from natural language description
-- `GET /api/rfps/:id` - Get RFP details with vendors and proposals
-- `POST /api/rfps/:id/send` - Send RFP to selected vendors (requires `vendor_ids` array in body)
-
-### Vendor Endpoints
-- `GET /api/vendors` - List all vendors
-- `POST /api/vendors` - Create new vendor
-- `GET /api/vendors/:id` - Get vendor details
-- `PUT /api/vendors/:id` - Update vendor
-- `DELETE /api/vendors/:id` - Delete vendor
-
-### Proposal Endpoints
-- `POST /api/proposals/parse` - Parse vendor proposal email manually (requires `rfp_id`, `vendor_id`, `email_subject`, `email_body`)
-- `GET /api/proposals/rfp/:id` - Get all proposals for an RFP
-- `GET /api/proposals/rfp/:id/compare` - Compare proposals for an RFP with AI recommendations
-
-### Email Endpoints
-- `POST /api/email/receive` - Receive and process vendor proposal email (requires `from`, `subject`, `body`, optional `rfp_id`)
-
-## Quick Start
-
-Run the setup script to install dependencies:
-
-```bash
-./setup.sh
-```
-
-Or manually:
-
-```bash
-# Backend
-cd backend && npm install
-
-# Frontend
-cd frontend && npm install
-```
-
-## Development
-
-### Starting the Application
+### d. How to Run Everything Locally
 
 1. **Start PostgreSQL** (if not running as a service):
-
 ```bash
 # Linux/Mac
 sudo systemctl start postgresql
@@ -217,114 +114,866 @@ sudo systemctl start postgresql
 pg_ctl -D /usr/local/var/postgres start
 ```
 
-2. **Create Database**:
-
-```bash
-createdb rfp_management
-```
-
-3. **Configure Environment**:
-
-   - Copy `backend/.env.example` to `backend/.env`
-   - Add your Perplexity AI API key, database URL, and email credentials
-   - Get your Perplexity API key from https://www.perplexity.ai/settings/api
-   - **Email Setup**: See `EMAIL_SETUP.md` for detailed email configuration instructions
-     - For Gmail: Enable 2FA and generate App Password
-     - Configure SMTP (for sending) and IMAP (for receiving) settings
-
-4. **Start Backend** (in one terminal):
-
+2. **Start Backend** (Terminal 1):
 ```bash
 cd backend
 npm run dev
 ```
 
-Backend runs on `http://localhost:5001` (default port is 5001, or as specified in PORT env variable)
+Backend will run on `http://localhost:5001` (or port specified in `PORT` env variable)
 
-5. **Start Frontend** (in another terminal):
-
+3. **Start Frontend** (Terminal 2):
 ```bash
 cd frontend
 npm run dev
 ```
 
-Frontend runs on `http://localhost:3000`
+Frontend will run on `http://localhost:3000`
 
-## Architecture Overview
+4. **Access Application**:
+   - Open browser to `http://localhost:3000`
+   - Backend API available at `http://localhost:5001/api`
 
-### Workflow
+### e. Seed Data or Initial Scripts
 
-1. **Create RFP**: User describes requirements in natural language → AI parses into structured RFP
-2. **Manage Vendors**: Add/edit vendor contact information
-3. **Send RFP**: Select vendors and send RFP via email
-4. **Receive Responses**: Vendors reply via email → System parses responses automatically
-5. **Compare Proposals**: AI compares proposals and provides recommendations
+**No seed data scripts are included**. The system starts with an empty database. You'll need to:
 
-### Key Components
+1. **Add Vendors**: Use the frontend UI or `POST /api/vendors` endpoint
+2. **Create RFPs**: Use the frontend UI or `POST /api/rfps` endpoint
 
-- **AI Service**: Uses Perplexity AI (sonar model) for:
+**Example: Adding a test vendor via API**:
+```bash
+curl -X POST http://localhost:5001/api/vendors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test Vendor Inc",
+    "email": "vendor@example.com",
+    "contact_person": "John Doe",
+    "phone": "+1-555-0123"
+  }'
+```
 
-  - Natural language to structured RFP conversion (`parseRFPFromText`)
-  - Vendor proposal parsing (`parseProposalEmail`)
-  - Proposal comparison and recommendations (`compareProposals`)
+## 2. Tech Stack
 
-- **Email Service**: Handles:
+### Frontend
 
-  - Sending RFPs to vendors via SMTP (Nodemailer)
-  - Receiving vendor responses via webhook endpoint (`/api/email/receive`)
+- **Framework**: React 18.2.0 with TypeScript 5.3.3
+- **Build Tool**: Vite 5.0.8
+- **UI Library**: Material-UI (MUI) 5.15.0
+  - `@mui/material`: Core components
+  - `@mui/icons-material`: Icons
+  - `@emotion/react` & `@emotion/styled`: Styling engine
+- **Routing**: React Router DOM 6.21.1
+- **State Management**: TanStack Query (React Query) 5.17.0
+- **HTTP Client**: Axios 1.6.2
 
-- **Database Schema** (PostgreSQL with Sequelize):
-  - `vendors`: Vendor master data (id, name, email, contact_person, phone, address)
-  - `rfps`: RFP definitions (id, title, description, budget, delivery_days, payment_terms, warranty_period, requirements JSONB, status)
-  - `rfp_vendors`: Many-to-many relationship tracking sent RFPs (id, rfp_id, vendor_id, sent_at, status)
-  - `proposals`: Parsed vendor responses (id, rfp_id, vendor_id, email_subject, email_body, parsed_data JSONB, total_price, delivery_days, payment_terms, warranty_period, completeness_score, ai_summary, ai_recommendation, status)
+### Backend
 
-## Testing the System
+- **Runtime**: Node.js 18+
+- **Framework**: Express 4.18.2
+- **Language**: TypeScript 5.3.3
+- **Runtime Execution**: tsx 4.7.0 (for development)
+- **Database ORM**: Sequelize 6.35.2
+- **Database Driver**: pg (PostgreSQL) 8.11.3
+- **HTTP Client**: Axios 1.6.2
+- **CORS**: cors 2.8.5
+- **Environment Variables**: dotenv 16.3.1
 
-### Example Workflow
+### Database
 
-1. **Create RFP**:
+- **Database**: PostgreSQL 14+
+- **ORM**: Sequelize with TypeScript support
+- **Connection Pooling**: Configured in Sequelize (max: 5, min: 0)
+- **Schema Management**: Auto-sync on startup (development mode)
 
-   - Go to "Create RFP"
-   - Enter: "I need to procure laptops and monitors for our new office. Budget is $50,000 total. Need delivery within 30 days. We need 20 laptops with 16GB RAM and 15 monitors 27-inch. Payment terms should be net 30, and we need at least 1 year warranty."
-   - System will parse and create structured RFP
+### AI Provider
 
-2. **Add Vendors**:
+- **Provider**: Perplexity AI
+- **Model**: `sonar`
+- **API Endpoint**: `https://api.perplexity.ai/chat/completions`
+- **Usage**: 
+  - RFP parsing from natural language
+  - Proposal email parsing
+  - Proposal comparison and recommendations
 
-   - Go to "Vendors" → "Add New Vendor"
-   - Add vendor details (name, email, etc.)
+### Email Solution
 
-3. **Send RFP**:
+- **Sending**: Nodemailer 6.9.7 (SMTP)
+- **Receiving**: Webhook endpoint (`/api/email/receive`)
+- **Dependencies** (available but not actively used):
+  - `imap` 0.8.19
+  - `mailparser` 3.6.5
 
-   - Open RFP details
-   - Click "Send to Vendors"
-   - Select vendors and send
+### Key Libraries
 
-4. **Simulate Vendor Response**:
+- **Backend**:
+  - `sequelize`: ORM for database operations
+  - `axios`: HTTP client for Perplexity AI API
+  - `nodemailer`: Email sending
+  - `express`: Web framework
+  - `cors`: Cross-origin resource sharing
 
-   - Use the `/api/email/receive` endpoint to simulate receiving a vendor email
-   - System will parse the response automatically
+- **Frontend**:
+  - `@tanstack/react-query`: Server state management and caching
+  - `axios`: API client
+  - `react-router-dom`: Client-side routing
+  - `@mui/material`: UI component library
 
-5. **Compare Proposals**:
-   - Open RFP details
-   - Click "Compare Proposals"
-   - View AI-generated comparison and recommendation
+## 3. API Documentation
 
-## API Documentation
+### Base URL
 
-See the "API Endpoints" section above for complete endpoint documentation.
+- **Development**: `http://localhost:5001/api`
+- **Production**: Configure via `FRONTEND_URL` and reverse proxy
 
-## Notes
+### RFP Endpoints
 
-- **AI Provider**: The system uses Perplexity AI's sonar model for cost-effective AI processing with real-time information access
-- **API Key**: Get your Perplexity API key from https://www.perplexity.ai/settings/api (key starts with `pplx-`)
-- **Email Setup**: 
-  - Email sending: Configured via SMTP (supports Gmail, Outlook, SendGrid, etc.)
-  - Email receiving: Use the `/api/email/receive` webhook endpoint to process vendor responses
-  - For Gmail: Enable 2FA and generate an App Password (not your regular password)
-- **Database**: Tables are auto-created on first server start using Sequelize's `sync()` method
-- **AI Parsing**: All AI parsing uses structured JSON output for reliability
-- **Default Port**: Backend port is configurable via PORT env variable (defaults to 5432 in code, but should be set to 5001 in .env to avoid conflict with PostgreSQL)
+#### GET /api/rfps
+
+List all RFPs with vendor and proposal counts.
+
+**Response** (200 OK):
+```json
+[
+  {
+    "id": 1,
+    "title": "Laptops and Monitors Procurement",
+    "description": "Need to procure laptops and monitors...",
+    "budget": "50000.00",
+    "delivery_days": 30,
+    "payment_terms": "net 30",
+    "warranty_period": "1 year",
+    "requirements": {
+      "items": [
+        {
+          "name": "Laptops",
+          "quantity": 20,
+          "specifications": { "RAM": "16GB" }
+        }
+      ]
+    },
+    "status": "draft",
+    "vendor_count": 3,
+    "proposal_count": 2,
+    "created_at": "2024-01-15T10:00:00.000Z",
+    "updated_at": "2024-01-15T10:00:00.000Z"
+  }
+]
+```
+
+#### POST /api/rfps
+
+Create RFP from natural language description.
+
+**Request Body**:
+```json
+{
+  "description": "I need to procure laptops and monitors for our new office. Budget is $50,000 total. Need delivery within 30 days. We need 20 laptops with 16GB RAM and 15 monitors 27-inch. Payment terms should be net 30, and we need at least 1 year warranty."
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "id": 1,
+  "title": "Laptops and Monitors Procurement",
+  "description": "Need to procure laptops and monitors for our new office",
+  "budget": "50000.00",
+  "delivery_days": 30,
+  "payment_terms": "net 30",
+  "warranty_period": "1 year",
+  "requirements": {
+    "items": [
+      {
+        "name": "Laptops",
+        "quantity": 20,
+        "specifications": { "RAM": "16GB" }
+      },
+      {
+        "name": "Monitors",
+        "quantity": 15,
+        "specifications": { "size": "27-inch" }
+      }
+    ]
+  },
+  "status": "draft",
+  "created_at": "2024-01-15T10:00:00.000Z",
+  "updated_at": "2024-01-15T10:00:00.000Z"
+}
+```
+
+**Error Response** (400 Bad Request):
+```json
+{
+  "error": "Description is required"
+}
+```
+
+**Error Response** (500 Internal Server Error):
+```json
+{
+  "error": "Perplexity API rate limit exceeded. Please try again later."
+}
+```
+
+#### GET /api/rfps/:id
+
+Get RFP details with associated vendors and proposals.
+
+**Response** (200 OK):
+```json
+{
+  "id": 1,
+  "title": "Laptops and Monitors Procurement",
+  "description": "Need to procure laptops...",
+  "budget": "50000.00",
+  "delivery_days": 30,
+  "payment_terms": "net 30",
+  "warranty_period": "1 year",
+  "requirements": { "items": [...] },
+  "status": "draft",
+  "vendors": [
+    {
+      "id": 1,
+      "name": "Tech Vendor Inc",
+      "email": "vendor@example.com",
+      "rfp_status": "sent",
+      "sent_at": "2024-01-15T11:00:00.000Z"
+    }
+  ],
+  "proposals": [
+    {
+      "id": 1,
+      "vendor_id": 1,
+      "vendor_name": "Tech Vendor Inc",
+      "vendor_email": "vendor@example.com",
+      "total_price": "28500.00",
+      "delivery_days": 25,
+      "payment_terms": "net 30",
+      "warranty_period": "2 years",
+      "completeness_score": "100.00",
+      "status": "received",
+      "created_at": "2024-01-16T09:00:00.000Z"
+    }
+  ],
+  "created_at": "2024-01-15T10:00:00.000Z",
+  "updated_at": "2024-01-15T10:00:00.000Z"
+}
+```
+
+**Error Response** (404 Not Found):
+```json
+{
+  "error": "RFP not found"
+}
+```
+
+#### POST /api/rfps/:id/send
+
+Send RFP to selected vendors via email.
+
+**Request Body**:
+```json
+{
+  "vendor_ids": [1, 2, 3]
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "message": "RFP sent to vendors",
+  "success": 3,
+  "failed": 0
+}
+```
+
+**Error Response** (400 Bad Request):
+```json
+{
+  "error": "vendor_ids array is required"
+}
+```
+
+**Error Response** (404 Not Found):
+```json
+{
+  "error": "RFP not found"
+}
+```
+
+### Vendor Endpoints
+
+#### GET /api/vendors
+
+List all vendors.
+
+**Response** (200 OK):
+```json
+[
+  {
+    "id": 1,
+    "name": "Tech Vendor Inc",
+    "email": "vendor@example.com",
+    "contact_person": "John Doe",
+    "phone": "+1-555-0123",
+    "address": "123 Main St, City, State",
+    "created_at": "2024-01-10T10:00:00.000Z",
+    "updated_at": "2024-01-10T10:00:00.000Z"
+  }
+]
+```
+
+#### POST /api/vendors
+
+Create new vendor.
+
+**Request Body**:
+```json
+{
+  "name": "Tech Vendor Inc",
+  "email": "vendor@example.com",
+  "contact_person": "John Doe",
+  "phone": "+1-555-0123",
+  "address": "123 Main St, City, State"
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "id": 1,
+  "name": "Tech Vendor Inc",
+  "email": "vendor@example.com",
+  "contact_person": "John Doe",
+  "phone": "+1-555-0123",
+  "address": "123 Main St, City, State",
+  "created_at": "2024-01-10T10:00:00.000Z",
+  "updated_at": "2024-01-10T10:00:00.000Z"
+}
+```
+
+**Error Response** (400 Bad Request):
+```json
+{
+  "error": "Name and email are required"
+}
+```
+
+**Error Response** (409 Conflict):
+```json
+{
+  "error": "Vendor with this email already exists"
+}
+```
+
+#### GET /api/vendors/:id
+
+Get vendor details.
+
+**Response** (200 OK):
+```json
+{
+  "id": 1,
+  "name": "Tech Vendor Inc",
+  "email": "vendor@example.com",
+  "contact_person": "John Doe",
+  "phone": "+1-555-0123",
+  "address": "123 Main St, City, State",
+  "created_at": "2024-01-10T10:00:00.000Z",
+  "updated_at": "2024-01-10T10:00:00.000Z"
+}
+```
+
+#### PUT /api/vendors/:id
+
+Update vendor.
+
+**Request Body** (all fields optional):
+```json
+{
+  "name": "Updated Vendor Name",
+  "phone": "+1-555-9999"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "id": 1,
+  "name": "Updated Vendor Name",
+  "email": "vendor@example.com",
+  "phone": "+1-555-9999",
+  "updated_at": "2024-01-15T12:00:00.000Z"
+}
+```
+
+#### DELETE /api/vendors/:id
+
+Delete vendor.
+
+**Success Response** (200 OK):
+```json
+{
+  "message": "Vendor deleted successfully"
+}
+```
+
+### Proposal Endpoints
+
+#### POST /api/proposals/parse
+
+Manually parse vendor proposal email.
+
+**Request Body**:
+```json
+{
+  "rfp_id": 1,
+  "vendor_id": 1,
+  "email_subject": "Re: RFP: Laptops and Monitors",
+  "email_body": "We can provide 20 laptops at $1,200 each and 15 monitors at $300 each. Total: $28,500. Delivery in 25 days. Payment terms: net 30. Warranty: 2 years."
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "id": 1,
+  "rfp_id": 1,
+  "vendor_id": 1,
+  "email_subject": "Re: RFP: Laptops and Monitors",
+  "email_body": "We can provide...",
+  "raw_response": "We can provide...",
+  "parsed_data": {
+    "total_price": 28500,
+    "delivery_days": 25,
+    "payment_terms": "net 30",
+    "warranty_period": "2 years",
+    "items": [
+      {
+        "name": "Laptops",
+        "quantity": 20,
+        "price": 1200
+      },
+      {
+        "name": "Monitors",
+        "quantity": 15,
+        "price": 300
+      }
+    ]
+  },
+  "total_price": "28500.00",
+  "delivery_days": 25,
+  "payment_terms": "net 30",
+  "warranty_period": "2 years",
+  "completeness_score": "100.00",
+  "status": "received",
+  "created_at": "2024-01-16T09:00:00.000Z"
+}
+```
+
+#### GET /api/proposals/rfp/:id
+
+Get all proposals for an RFP.
+
+**Response** (200 OK):
+```json
+{
+  "rfp": {
+    "id": 1,
+    "title": "Laptops and Monitors Procurement"
+  },
+  "proposals": [
+    {
+      "id": 1,
+      "vendor_id": 1,
+      "vendor_name": "Tech Vendor Inc",
+      "vendor_email": "vendor@example.com",
+      "total_price": "28500.00",
+      "delivery_days": 25,
+      "completeness_score": "100.00",
+      "status": "received",
+      "created_at": "2024-01-16T09:00:00.000Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+#### GET /api/proposals/rfp/:id/compare
+
+Compare proposals for an RFP with AI recommendations.
+
+**Response** (200 OK):
+```json
+{
+  "rfp": {
+    "id": 1,
+    "title": "Laptops and Monitors Procurement",
+    "budget": "50000.00",
+    "requirements": { "items": [...] }
+  },
+  "proposals": [...],
+  "comparison": [
+    {
+      "vendor_name": "Tech Vendor Inc",
+      "score": 85,
+      "strengths": ["Competitive pricing", "Fast delivery"],
+      "weaknesses": ["Limited warranty period"]
+    },
+    {
+      "vendor_name": "Another Vendor",
+      "score": 72,
+      "strengths": ["Extended warranty"],
+      "weaknesses": ["Higher price", "Longer delivery time"]
+    }
+  ],
+  "recommendation": {
+    "vendor_name": "Tech Vendor Inc",
+    "reasoning": "Tech Vendor Inc offers the best balance of price, delivery time, and terms while meeting all requirements."
+  },
+  "summary": "Two proposals received. Tech Vendor Inc is recommended due to competitive pricing and faster delivery."
+}
+```
+
+**Response** (200 OK - No proposals):
+```json
+{
+  "message": "No proposals received yet",
+  "comparison": [],
+  "recommendation": null,
+  "summary": "No proposals to compare"
+}
+```
+
+### Email Endpoints
+
+#### POST /api/email/receive
+
+Receive and process vendor proposal email (webhook).
+
+**Request Body**:
+```json
+{
+  "from": "vendor@example.com",
+  "subject": "Re: RFP: Laptops and Monitors",
+  "body": "We can provide 20 laptops at $1,200 each...",
+  "rfp_id": 1
+}
+```
+
+**Note**: `rfp_id` is optional. If not provided, system attempts to match RFP from email subject.
+
+**Success Response** (201 Created):
+```json
+{
+  "message": "Proposal received and parsed successfully",
+  "proposal": {
+    "id": 1,
+    "rfp_id": 1,
+    "vendor_id": 1,
+    "total_price": "28500.00",
+    "delivery_days": 25,
+    "completeness_score": "100.00",
+    "status": "received"
+  }
+}
+```
+
+**Error Response** (400 Bad Request):
+```json
+{
+  "error": "from, subject, and body are required"
+}
+```
+
+**Error Response** (404 Not Found):
+```json
+{
+  "error": "Vendor not found. Please add vendor first."
+}
+```
+
+## 4. Decisions & Assumptions
+
+### Key Design Decisions
+
+#### Models & Database Schema
+
+1. **Sequelize ORM**: Chose Sequelize over raw SQL for type safety, model relationships, and easier maintenance. Trade-off: Auto-sync in development (should use migrations in production).
+
+2. **JSONB for Flexible Data**:
+   - `rfps.requirements`: Stores structured item requirements as JSONB for flexibility
+   - `proposals.parsed_data`: Stores AI-parsed data as JSONB to accommodate varying proposal formats
+   - Allows schema evolution without migrations
+
+3. **Many-to-Many Relationship**: `rfp_vendors` junction table tracks:
+   - Which vendors received which RFPs
+   - When RFPs were sent (`sent_at`)
+   - Status of RFP-vendor relationship (`pending`, `sent`, `responded`)
+
+4. **Completeness Score**: Simple heuristic (25% each for):
+   - Total price presence
+   - Delivery days presence
+   - Payment terms presence
+   - Items array presence
+   - **Rationale**: Quick calculation, could be enhanced with ML-based scoring
+
+5. **Status Fields**: 
+   - `rfps.status`: `draft`, `sent`, `closed`
+   - `rfp_vendors.status`: `pending`, `sent`, `responded`
+   - `proposals.status`: `received`, `reviewed`, `accepted`, `rejected`
+   - **Rationale**: Simple state tracking, extensible for workflow
+
+#### Flows & Processes
+
+1. **Natural Language RFP Creation**: 
+   - Single-step process: user provides description → AI parses → saved
+   - **Rationale**: Reduces friction, leverages AI for structure extraction
+   - **Trade-off**: Less control over exact structure, requires good prompts
+
+2. **Email-Based Workflow**:
+   - RFPs sent via email (SMTP)
+   - Responses received via webhook (not IMAP polling)
+   - **Rationale**: Webhook is more reliable, easier to debug, works with any email service
+   - **Trade-off**: Requires integration setup (future: IMAP polling option)
+
+3. **Vendor Identification by Email**:
+   - System matches vendor by email address from incoming emails
+   - **Rationale**: Simple, reliable identifier
+   - **Assumption**: Vendor email in database matches sender email exactly
+
+4. **RFP Matching**:
+   - Primary: `rfp_id` parameter in webhook request
+   - Fallback: Extract from email subject (fuzzy matching)
+   - **Rationale**: Flexible for different integration scenarios
+   - **Trade-off**: Subject matching may fail with complex subjects
+
+5. **AI Parsing Strategy**:
+   - Always provide RFP requirements context to AI
+   - Use structured JSON output with error handling
+   - Clean markdown code blocks from responses
+   - **Rationale**: Improves accuracy, handles edge cases
+
+6. **Comparison Scoring**:
+   - AI generates 0-100 scores per vendor
+   - Considers: price, delivery, terms, warranty, completeness
+   - Provides reasoning for recommendation
+   - **Rationale**: Transparent, explainable recommendations
+
+#### Scoring & Evaluation
+
+1. **Completeness Score**: Binary presence check (25% per field)
+   - Could be enhanced with: field importance weighting, data quality checks
+   - **Current limitation**: Doesn't assess quality, only presence
+
+2. **Comparison Scoring**: AI-generated, considers multiple factors
+   - **Strengths**: Contextual, considers RFP requirements
+   - **Limitations**: May vary between runs, depends on prompt quality
+
+### Assumptions
+
+#### Email & Communication
+
+1. **Email Format**: 
+   - Vendors reply to RFP emails in plain text or HTML
+   - Key information (price, delivery, terms) is in email body (not attachments)
+   - **Limitation**: Doesn't parse PDF attachments or complex tables
+
+2. **Email Delivery**:
+   - SMTP credentials are valid and email service is accessible
+   - Vendors receive and can reply to emails
+   - **Future**: Handle bounce backs, delivery failures
+
+3. **Vendor Behavior**:
+   - Vendors reply to the same email thread
+   - Email subject contains RFP reference (for fallback matching)
+   - Vendor email matches database exactly
+
+#### Data & Formats
+
+1. **RFP Descriptions**:
+   - Users provide reasonably structured natural language
+   - AI can extract: budget, delivery time, items, quantities, specifications
+   - **Limitation**: Very unstructured or ambiguous descriptions may parse incorrectly
+
+2. **Proposal Formats**:
+   - Vendors provide pricing in recognizable formats ($, USD, numbers)
+   - Delivery times in days or weeks (convertible)
+   - **Limitation**: Non-standard formats may not parse correctly
+
+3. **Currency & Units**:
+   - Assumes single currency (USD by default)
+   - Delivery in days
+   - **Future**: Multi-currency support, unit conversion
+
+#### System Limitations
+
+1. **Single User**: No authentication, assumes single user
+2. **No Versioning**: RFPs and proposals are not versioned
+3. **No Attachments**: Doesn't handle file attachments in proposals
+4. **No Real-time**: Email receiving requires manual webhook calls (no IMAP polling)
+5. **Database**: Auto-sync in development (not production-ready migrations)
+
+#### AI Provider
+
+1. **Perplexity AI Availability**: Assumes API is accessible, has quota
+2. **Response Format**: Assumes JSON responses (with markdown cleaning)
+3. **Rate Limits**: No built-in retry logic for rate limits
+4. **Cost**: Assumes API costs are acceptable for usage volume
+
+## 5. AI Tools Usage
+
+### Which AI Tools Were Used
+
+1. **Cursor**: For Initial Project Setup + initial boilerplate to make CRUD Apis for the Project + Making Frontend part of the project
+2. **ChatGPT**: Assisted Through integrated language models for Parsing the rfps through perplexity + Integrating the Email Functionality
+
+### What They Helped With
+
+#### 1. Boilerplate Generation
+
+- **Express.js Setup**: Generated initial Express app structure, middleware configuration, and route definitions
+- **Sequelize Models**: Created model definitions with proper TypeScript types, relationships, and indexes
+- **React Components**: Generated Material-UI component structures with proper TypeScript interfaces
+- **API Controllers**: Created controller functions with error handling patterns
+
+**Example Prompt Used**:
+```
+"Create a Sequelize model for RFP with fields: title, description, budget, delivery_days, payment_terms, warranty_period, requirements (JSONB), and status. Include proper TypeScript types and timestamps."
+```
+
+#### 2. Debugging & Error Handling
+
+- **API Error Responses**: Helped structure consistent error response formats
+- **Perplexity API Integration**: Debugged API call issues, error handling for rate limits and authentication
+- **TypeScript Type Errors**: Resolved type mismatches, especially with Sequelize model types and JSONB fields
+- **Database Connection Issues**: Troubleshot Sequelize connection pooling and configuration
+
+**Example Prompt Used**:
+```
+"The Perplexity API is returning 401 errors. Help me add proper error handling for authentication failures, rate limits, and quota issues with clear error messages."
+```
+
+#### 3. Design & Architecture
+
+- **Database Schema Design**: Discussed trade-offs between normalized vs. denormalized structures
+- **API Endpoint Design**: Designed RESTful endpoints with proper HTTP methods and status codes
+- **Component Structure**: Planned React component hierarchy and state management approach
+- **Email Workflow**: Designed email sending/receiving flow with webhook approach
+
+**Example Prompt Used**:
+```
+"Design a database schema for an RFP system. I need to track RFPs, vendors, which vendors received which RFPs, and vendor proposals. Consider many-to-many relationships and proposal parsing requirements."
+```
+
+#### 4. Parsing & Data Extraction
+
+- **AI Prompt Engineering**: Refined prompts for Perplexity AI to extract structured data from natural language
+- **JSON Parsing**: Handled markdown code block cleaning in AI responses
+- **Email Parsing Logic**: Designed approach to match vendor emails and extract RFP context
+- **Completeness Scoring**: Designed heuristic for proposal completeness evaluation
+
+**Example Prompt Used**:
+```
+"Create a prompt for Perplexity AI that extracts structured RFP data from natural language. The output should be JSON with: title, description, budget, delivery_days, payment_terms, warranty_period, and requirements (items array). Handle edge cases like missing fields."
+```
+
+#### 5. Code Refactoring
+
+- **Type Safety**: Improved TypeScript types throughout the codebase
+- **Error Handling**: Standardized error handling patterns across controllers
+- **Code Organization**: Refactored file structure (moved from `services/` to `utils/`, organized controllers)
+- **Database Queries**: Optimized Sequelize queries with proper includes and associations
+
+### Notable Prompts/Approaches
+
+#### 1. Structured AI Output Parsing
+
+**Challenge**: Perplexity AI sometimes returns JSON wrapped in markdown code blocks.
+
+**Solution Prompt**:
+```
+"Create a function that calls Perplexity AI and parses the response. The AI may return JSON wrapped in markdown code blocks (```json ... ```). Clean the response to extract valid JSON, handle parsing errors, and provide specific error messages for different failure scenarios (rate limits, auth, quota)."
+```
+
+**Result**: Implemented response cleaning that strips markdown, handles various error codes, and provides user-friendly error messages.
+
+#### 2. Completeness Score Calculation
+
+**Challenge**: Need a simple but effective way to score proposal completeness.
+
+**Approach Discussed**:
+```
+"I need to calculate a completeness score for vendor proposals. The score should consider: total_price, delivery_days, payment_terms, and items array. Should I use a simple binary check (present/not present) or a more sophisticated scoring system?"
+```
+
+**Decision**: Started with simple binary scoring (25% each) for MVP, with notes on future enhancements (weighting, quality assessment).
+
+#### 3. Email Workflow Design
+
+**Challenge**: How to receive vendor responses reliably.
+
+**Approach Discussed**:
+```
+"I need to receive vendor proposal emails. Options: 1) IMAP polling, 2) Webhook endpoint, 3) Email service webhooks (Mailgun/SendGrid). What are the trade-offs? Which is best for a single-user MVP?"
+```
+
+**Decision**: Webhook endpoint for MVP (simple, debuggable), with notes on IMAP polling for future enhancement.
+
+#### 4. RFP Matching from Email Subject
+
+**Challenge**: Match incoming emails to RFPs when `rfp_id` not provided.
+
+**Approach**:
+```
+"Create logic to match an incoming email to an RFP. If rfp_id is provided, use it. Otherwise, try to match by email subject. The subject might be 'Re: RFP: [RFP Title]' or similar variations."
+```
+
+**Result**: Implemented fallback matching using case-insensitive LIKE query on RFP titles.
+
+### What Was Learned or Changed
+
+#### 1. Prompt Engineering Best Practices
+
+- **Structured Output**: Always request JSON format explicitly
+- **Context Matters**: Providing RFP requirements to AI improves proposal parsing accuracy
+- **Error Handling**: AI responses need cleaning and validation, not just direct parsing
+- **Temperature Settings**: Lower temperature (0.3) for parsing, higher (0.5) for comparisons
+
+#### 2. TypeScript + Sequelize Integration
+
+- **Model Types**: Learned to properly type Sequelize models with TypeScript
+- **JSONB Handling**: Discovered need for type assertions when working with JSONB fields
+- **Association Types**: Understood how to properly type Sequelize associations and includes
+
+#### 3. API Design Patterns
+
+- **Consistent Error Responses**: Standardized error format across all endpoints
+- **Status Codes**: Proper use of 201 for creation, 404 for not found, 400 for validation errors
+- **Response Structure**: Learned to include metadata (counts, status) in list responses
+
+#### 4. AI Integration Patterns
+
+- **Retry Logic**: Considered but not implemented - would need exponential backoff for rate limits
+- **Caching**: AI responses could be cached for same inputs (not implemented)
+- **Cost Management**: Learned to monitor API usage, use appropriate models (sonar is cost-effective)
+
+#### 5. Development Workflow
+
+- **Iterative Refinement**: Used AI to quickly prototype, then refined based on testing
+- **Code Review**: AI helped identify potential issues before manual testing
+- **Documentation**: AI assisted in generating comprehensive documentation and comments
+
+### Changes Made Based on AI Suggestions
+
+1. **Response Cleaning**: Added markdown stripping after AI suggested it would improve reliability
+2. **Error Messages**: Enhanced error messages based on AI feedback about user experience
+3. **Type Safety**: Improved TypeScript types throughout after AI identified type issues
+4. **Code Organization**: Restructured from `services/` to `utils/` based on clearer separation of concerns
+5. **Database Indexes**: Added indexes on foreign keys after AI suggested performance improvements
+
+---
 
 ## License
 
